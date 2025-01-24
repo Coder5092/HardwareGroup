@@ -10,26 +10,28 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.TouchSensor;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 @SuppressWarnings("unused")
 public class HardwareGroup {
   public static class Group<T extends HardwareDevice> {
     public T[] hardware;
-    private final T firstObj;
+    protected boolean[] reversed;
+    protected T firstObj;
 
     @SafeVarargs
-    private Group(T... objects) {
+    public Group(T... objects) {
       hardware = objects.clone();
-      firstObj = hardware[0];
+      prepareValues();
     }
 
-    private Group(Class<T> hardwareClass, HardwareMap map, String... names) {
+    public Group(Class<T> hardwareClass, HardwareMap map, String... names) {
       ArrayList<T> list = new ArrayList<>();
       for (String name : names) {
         list.add(map.get(hardwareClass, name));
       }
       hardware = (T[]) list.toArray();
-      firstObj = hardware[0];
+      prepareValues();
     }
 
     private Group(HardwareMap.DeviceMapping<T> mapping, String... names) {
@@ -38,14 +40,22 @@ public class HardwareGroup {
         list.add(mapping.get(name));
       }
       hardware = (T[]) list.toArray();
+      prepareValues();
+    }
+
+    protected void prepareValues() {
       firstObj = hardware[0];
+      reversed = new boolean[hardware.length];
+      Arrays.fill(reversed, true);
     }
 
     // Servos begin here
 
     public void setPosition(double d) {
       if (firstObj instanceof Servo) {
-        for (T obj : hardware) ((Servo) obj).setPosition(d);
+        for (int i = 0; i < hardware.length; i++) {
+          ((Servo) hardware[i]).setPosition(reversed[i] ? 1 - d : d);
+        }
       } else unsupported("Servo");
     }
 
@@ -59,11 +69,19 @@ public class HardwareGroup {
     // Motors begin here
 
     public void setPower(double d) {
-      if (firstObj instanceof DcMotorEx) for (T obj : hardware) ((DcMotorEx) obj).setPower(d);
-      else if (firstObj instanceof DcMotor) for (T obj : hardware) ((DcMotorEx) obj).setPower(d);
-      else if (firstObj instanceof DcMotorSimple)
-        for (T obj : hardware) ((DcMotorSimple) obj).setPower(d);
-      else unsupported("DcMotorSimple");
+      if (firstObj instanceof DcMotorEx) {
+        for (int i = 0; i < hardware.length; i++) {
+          ((DcMotorEx) hardware[i]).setPower(reversed[i] ? -d : d);
+        }
+      } else if (firstObj instanceof DcMotor) {
+        for (int i = 0; i < hardware.length; i++) {
+          ((DcMotor) hardware[i]).setPower(reversed[i] ? -d : d);
+        }
+      } else if (firstObj instanceof DcMotorSimple) {
+        for (int i = 0; i < hardware.length; i++) {
+          ((DcMotorSimple) hardware[i]).setPower(reversed[i] ? -d : d);
+        }
+      } else unsupported("DcMotorSimple");
     }
 
     public void setMode(DcMotor.RunMode mode) {
@@ -81,12 +99,19 @@ public class HardwareGroup {
     }
 
     public void setDirection(DcMotor.Direction dir) {
-      if (firstObj instanceof DcMotorEx) for (T obj : hardware) ((DcMotorEx) obj).setDirection(dir);
-      else if (firstObj instanceof DcMotor)
-        for (T obj : hardware) ((DcMotorEx) obj).setDirection(dir);
-      else if (firstObj instanceof DcMotorSimple)
-        for (T obj : hardware) ((DcMotorSimple) obj).setDirection(dir);
-      else unsupported("DcMotorSimple");
+      if (firstObj instanceof DcMotorEx) {
+        for (int i = 0; i < hardware.length; i++) {
+          ((DcMotorEx) hardware[i]).setDirection(reversed[i] ? dir.inverted() : dir);
+        }
+      } else if (firstObj instanceof DcMotor) {
+        for (int i = 0; i < hardware.length; i++) {
+          ((DcMotor) hardware[i]).setDirection(reversed[i] ? dir.inverted() : dir);
+        }
+      } else if (firstObj instanceof DcMotorSimple) {
+        for (int i = 0; i < hardware.length; i++) {
+          ((DcMotorSimple) hardware[i]).setDirection(reversed[i] ? dir.inverted() : dir);
+        }
+      } else unsupported("DcMotorSimple");
     }
 
     public void setZeroPowerBehavior(DcMotor.ZeroPowerBehavior zpb) {
@@ -101,8 +126,10 @@ public class HardwareGroup {
     public boolean[] isPressed() {
       if (firstObj instanceof TouchSensor) {
         boolean[] results = new boolean[hardware.length];
-        for (int i = 0; i < hardware.length; i++)
+        for (int i = 0; i < hardware.length; i++) {
           results[i] = ((TouchSensor) hardware[i]).isPressed();
+          if (reversed[i]) results[i] = !results[i];
+        }
         return results;
       } else unsupported("TouchSensor");
       return null; // won't be reached, but will be required for compilation
@@ -145,6 +172,39 @@ public class HardwareGroup {
 
     private void unsupported(String type) {
       throw new UnsupportedOperationException(firstObj.getClass().getName() + " is not " + type + ".");
+    }
+  }
+
+  public static final class AlternatePair<T extends HardwareDevice> extends Group<T> {
+
+    @Override
+    protected void prepareValues() {
+      super.prepareValues();
+      reversed = new boolean[] {false, true};
+    }
+
+    public AlternatePair(T o1, T o2) {
+      ArrayList<T> list = new ArrayList<>();
+      list.add(o1);
+      list.add(o2);
+      hardware = (T[]) list.toArray();
+      prepareValues();
+    }
+
+    public AlternatePair(Class<T> hardwareClass, HardwareMap map, String name1, String name2) {
+      ArrayList<T> list = new ArrayList<>();
+      list.add(map.get(hardwareClass, name1));
+      list.add(map.get(hardwareClass, name2));
+      hardware = (T[]) list.toArray();
+      prepareValues();
+    }
+
+    private AlternatePair(HardwareMap.DeviceMapping<T> mapping, String name1, String name2) {
+      ArrayList<T> list = new ArrayList<>();
+      list.add(mapping.get(name1));
+      list.add(mapping.get(name2));
+      hardware = (T[]) list.toArray();
+      prepareValues();
     }
   }
 }
