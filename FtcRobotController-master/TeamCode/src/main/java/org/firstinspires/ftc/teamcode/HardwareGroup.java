@@ -101,15 +101,15 @@ public class HardwareGroup {
     public void setDirection(DcMotor.Direction dir) {
       if (firstObj instanceof DcMotorEx) {
         for (int i = 0; i < hardware.length; i++) {
-          ((DcMotorEx) hardware[i]).setDirection(reversed[i] ? dir.inverted() : dir);
+          ((DcMotorEx) hardware[i]).setDirection(dir);
         }
       } else if (firstObj instanceof DcMotor) {
         for (int i = 0; i < hardware.length; i++) {
-          ((DcMotor) hardware[i]).setDirection(reversed[i] ? dir.inverted() : dir);
+          ((DcMotor) hardware[i]).setDirection(dir);
         }
       } else if (firstObj instanceof DcMotorSimple) {
         for (int i = 0; i < hardware.length; i++) {
-          ((DcMotorSimple) hardware[i]).setDirection(reversed[i] ? dir.inverted() : dir);
+          ((DcMotorSimple) hardware[i]).setDirection(dir);
         }
       } else unsupported("DcMotorSimple");
     }
@@ -138,8 +138,7 @@ public class HardwareGroup {
     // color sensors here
     public void led(boolean enable) {
       if (firstObj instanceof ColorSensor) {
-        if (enable) for (T obj : hardware) ((ColorSensor) obj).enableLed(true);
-        else for (T obj : hardware) ((ColorSensor) obj).enableLed(false);
+        for (T obj : hardware) ((ColorSensor) obj).enableLed(enable);
       } else unsupported("ColorSensor");
     }
 
